@@ -50,15 +50,16 @@ void loc_PutOnMap()
     memcpy(map, loc.map, sizeof(map));
 }
 
-struct Player
-{
+struct Player {
+    char name[20];
     POINT pos;
-} player;
+}player;
 
-void player_Init(int x, int y)
+void player_Init(int x, int y, const char *name)
 {
     player.pos.x = x;
     player.pos.y = y;
+    strcpy(player.name, name);
 }
 
 void player_PutOnMap()
@@ -68,14 +69,32 @@ void player_PutOnMap()
 
 void player_Control()
 {
+    POINT old = player.pos;
     if (GetKeyState('W') < 0) player.pos.y--;
     if (GetKeyState('S') < 0) player.pos.y++;
     if (GetKeyState('A') < 0) player.pos.x--;
     if (GetKeyState('D') < 0) player.pos.x++;
+    if (map[player.pos.y][player.pos.x] != ' ')
+        player.pos = old;
+}
+
+void player_Save() {
+    std::ofstream file(player.name, std::ios::out | std::ios::binary);
+    file.write(reinterpret_cast<const char*>(&player), sizeof(player));
+    file.close();
+}
+
+void player_Load(const char *name) {
+    std::ifstream file(name, std::ios::in | std::ios::binary);
+    if (!file.good())
+        player_Init(5, 5, name);
+    else
+        file.read(reinterpret_cast<char*>(&player), sizeof(player));
+    file.close();
 }
 
 int main() {
-    player_Init(5, 5);
+    player_Load("Andrey");
     loc_LoadFromFile("empty_map.txt");
     do
     {
@@ -85,5 +104,6 @@ int main() {
         map_Show();
         Sleep(50);
     } while (GetKeyState(VK_ESCAPE) >= 0);
+    player_Save();
     return 0;
 }
