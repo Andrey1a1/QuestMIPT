@@ -8,6 +8,7 @@
 
 struct Location {
     char map[height][width + 1];
+    POINT sz;
 }loc;
 
 void loc_LoadFromFile(const char *fileName) {
@@ -16,15 +17,23 @@ void loc_LoadFromFile(const char *fileName) {
         loc.map[i][width] = '\0';
 
     std::ifstream file(fileName);
-    std::string line;
-    int lineNum = 0;
-    while (std::getline(file, line) && lineNum < height) {
-        strncpy(loc.map[lineNum], line.substr(0, width).c_str(), width);
-        lineNum++;
-    }
-    file.close();
+    if (file.is_open()) {
+        std::string line;
+        loc.sz.x = 0;
+        loc.sz.y = 0;
 
+        while (std::getline(file, line) && loc.sz.y < height) {
+            int cnt = line.size();
+            if (cnt > width) cnt = width;
+            std::strncpy(loc.map[loc.sz.y], line.c_str(), cnt);
+            loc.map[loc.sz.y][cnt] = '\0';
+            loc.sz.y++;
+            if (cnt > loc.sz.x) loc.sz.x = cnt;
+        }
+        file.close();
+    }
     loc.map[height - 1][width - 1] = '\0';
+
 }
 
 
@@ -53,13 +62,21 @@ void loc_PutOnMap()
 struct Player {
     char name[20];
     POINT pos;
+    POINT locPos;
 }player;
 
-void player_Init(int x, int y, const char *name)
+void player_LoadLocation() {
+    std::string fileName = "map_" + std::to_string(player.locPos.x) + "_" + std::to_string(player.locPos.y) + ".txt";
+    loc_LoadFromFile(fileName.c_str());
+}
+
+void player_Init(int xLoc, int yLoc, int x, int y, const char *name)
 {
     player.pos.x = x;
     player.pos.y = y;
     strcpy(player.name, name);
+    player.locPos.x = xLoc;
+    player.locPos.y = yLoc;
 }
 
 void player_PutOnMap()
@@ -76,6 +93,28 @@ void player_Control()
     if (GetKeyState('D') < 0) player.pos.x++;
     if (map[player.pos.y][player.pos.x] != ' ')
         player.pos = old;
+    
+    if (player.pos.x > loc.sz.x - 2) {
+        player.locPos.x++;
+        player_LoadLocation();
+        player.pos.x = 1;
+    }
+    if (player.pos.x < 1) {
+        player.locPos.x--;
+        player_LoadLocation();
+        player.pos.x = loc.sz.x - 2;
+    }
+
+    if (player.pos.y > loc.sz.y - 2) {
+        player.locPos.y++;
+        player_LoadLocation();
+        player.pos.y = 1;
+    }
+    if (player.pos.y < 1) {
+        player.locPos.y--;
+        player_LoadLocation();
+        player.pos.y = loc.sz.y - 2;
+    }
 }
 
 void player_Save() {
@@ -87,7 +126,7 @@ void player_Save() {
 void player_Load(const char *name) {
     std::ifstream file(name, std::ios::in | std::ios::binary);
     if (!file.good())
-        player_Init(5, 5, name);
+        player_Init(0, 0, 5, 5, name);
     else
         file.read(reinterpret_cast<char*>(&player), sizeof(player));
     file.close();
@@ -95,14 +134,14 @@ void player_Load(const char *name) {
 
 int main() {
     player_Load("Andrey");
-    loc_LoadFromFile("empty_map.txt");
+    player_LoadLocation();
     do
     {
         player_Control();
         loc_PutOnMap();
         player_PutOnMap();
         map_Show();
-        Sleep(50);
+        Sleep(30);
     } while (GetKeyState(VK_ESCAPE) >= 0);
     player_Save();
     return 0;
